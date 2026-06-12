@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<meta name="theme-color" content="#0a0a14" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<title>SPENDI</title>
+<meta name="apple-mobile-web-app-title" content="SPENDI" />
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #0a0a14;
+    color: #fff;
+    font-family: -apple-system, 'SF Pro Display', 'Inter', sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  #app { max-width: 480px; margin: 0 auto; padding-bottom: 60px; min-height: 100vh; }
+  button { font-family: inherit; cursor: pointer; }
+
+  .topbar { display: flex; align-items: center; justify-content: space-between; padding: 20px 16px 0; }
+  .logo { font-size: 13px; font-weight: 700; letter-spacing: 0.18em; color: #F5C518; }
+  .trip-select {
+    background: #11111f; border: 1px solid #2a2a3e; border-radius: 8px;
+    color: #fff; font-size: 13px; font-weight: 600; padding: 8px 10px; outline: none;
+    font-family: inherit; max-width: 180px;
+  }
+
+  .header { padding: 20px 24px 16px; display: flex; justify-content: space-between; align-items: flex-end; }
+  .total-label { font-size: 11px; color: #555; letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 4px; }
+  .total-amount { font-size: 38px; font-weight: 700; letter-spacing: -0.02em; }
+  .trip-total { font-size: 13px; color: #888; margin-top: 6px; }
+  .trip-total b { color: #F5C518; font-weight: 700; }
+  .btn-add {
+    background: #F5C518; color: #0a0a14; border: none; border-radius: 8px;
+    padding: 10px 18px; font-weight: 700; font-size: 14px; margin-bottom: 6px;
+  }
+
+  /* new trip panel */
+  .trip-panel {
+    margin: 0 16px 14px; background: #11111f; border: 1px solid #2a2a3e;
+    border-radius: 14px; padding: 16px; display: none; flex-direction: column; gap: 10px;
+  }
+  .trip-panel.open { display: flex; }
+  .trip-panel-title { font-size: 13px; font-weight: 700; color: #F5C518; }
+  .trip-row { display: flex; gap: 8px; }
+  .trip-row > * { flex: 1; }
+  .btn-primary {
+    background: #1A73E8; color: #fff; border: none; border-radius: 8px;
+    padding: 11px; font-weight: 700; font-size: 14px;
+  }
+  .btn-ghost {
+    background: #1a1a2e; color: #aaa; border: 1px solid #2a2a3e; border-radius: 8px;
+    padding: 11px; font-weight: 600; font-size: 14px;
+  }
+  .btn-danger-sm {
+    background: none; border: 1px solid #5c2a2a; border-radius: 7px;
+    color: #c0392b; padding: 8px 12px; font-size: 12px; font-weight: 600;
+  }
+
+  .view-switch { display: flex; gap: 6px; padding: 0 16px 14px; border-bottom: 1px solid #1a1a2e; }
+  .view-btn {
+    flex: 1; background: #11111f; border: 1px solid #1a1a2e; border-radius: 8px;
+    color: #777; padding: 10px; font-size: 13px; font-weight: 600;
+  }
+  .view-btn.active { background: #1A73E8; border-color: #1A73E8; color: #fff; }
+
+  .form-card {
+    margin: 14px 16px 0; background: #11111f; border-radius: 14px;
+    padding: 20px 20px 16px; display: none; flex-direction: column; gap: 12px;
+  }
+  .form-card.open { display: flex; }
+  .form-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .amount-input {
+    flex: 1; background: #0a0a14; border: 1px solid #2a2a3e; border-radius: 8px;
+    color: #fff; font-size: 28px; font-weight: 700; padding: 10px 14px; outline: none; min-width: 0; width: 100%;
+  }
+  .currency { font-size: 20px; color: #F5C518; font-weight: 700; }
+  .method-pill {
+    border-radius: 20px; padding: 7px 14px; font-size: 13px; font-weight: 600;
+    background: #1a1a2e; color: #aaa; border: 1px solid #333;
+  }
+  .method-add { border-style: dashed; color: #F5C518; border-color: #4a4520; }
+  .method-add-row { display: none; }
+  .method-add-row.open { display: flex; }
+  select, .text-input {
+    background: #0a0a14; border: 1px solid #2a2a3e; border-radius: 8px;
+    color: #fff; font-size: 14px; padding: 10px 12px; outline: none; width: 100%;
+    font-family: inherit; -webkit-appearance: none;
+  }
+  .btn-submit {
+    background: #F5C518; color: #0a0a14; border: none; border-radius: 8px;
+    padding: 12px; font-weight: 700; font-size: 15px; width: 100%;
+  }
+
+  .tabs { display: flex; padding: 0 16px; gap: 4px; overflow-x: auto; border-bottom: 1px solid #1a1a2e; }
+  .tab {
+    background: none; border: none; border-bottom: 2px solid transparent;
+    padding: 14px 12px; display: flex; flex-direction: column; align-items: center;
+    gap: 2px; font-size: 12px; font-weight: 600; color: #666; white-space: nowrap;
+  }
+  .tab .amt { font-size: 10px; color: #555; font-weight: 400; }
+  .tab.active { color: #fff; }
+
+  .list { padding: 8px 16px 0; display: flex; flex-direction: column; gap: 4px; }
+  .empty { text-align: center; color: #444; font-size: 14px; padding: 40px 0; }
+  .entry {
+    display: flex; align-items: center; gap: 12px; padding: 14px 12px;
+    border-radius: 10px; background: #11111f;
+  }
+  .dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .entry-info { flex: 1; min-width: 0; }
+  .entry-cat { font-size: 14px; font-weight: 600; }
+  .entry-note { font-size: 12px; color: #888; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .entry-meta { font-size: 11px; color: #444; margin-top: 3px; }
+  .entry-right { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+  .entry-amt { font-size: 15px; font-weight: 700; color: #F5C518; }
+  .btn-del { background: none; border: none; color: #555; font-size: 13px; padding: 2px 6px; }
+
+  .cal-wrap { padding: 16px; display: none; }
+  .cal-wrap.open { display: block; }
+  .cal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+  .cal-nav {
+    background: #11111f; border: 1px solid #2a2a3e; border-radius: 8px;
+    color: #fff; width: 38px; height: 38px; font-size: 20px;
+  }
+  .cal-month { text-align: center; font-size: 16px; font-weight: 700; }
+  .cal-month-total { font-size: 13px; color: #F5C518; font-weight: 600; margin-top: 2px; text-align: center; }
+  .cal-weekdays, .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+  .cal-weekdays { margin-bottom: 4px; }
+  .cal-wd { text-align: center; font-size: 11px; color: #555; font-weight: 600; padding: 4px 0; }
+  .cal-cell {
+    aspect-ratio: 1; border: none; border-radius: 8px; background: #11111f; color: #fff;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 0;
+  }
+  .cal-cell .num { font-size: 13px; font-weight: 600; }
+  .cal-cell .camt { font-size: 9px; font-weight: 700; color: #F5C518; }
+  .cal-cell.selected { background: #F5C518 !important; color: #0a0a14; }
+  .cal-cell.selected .camt { color: #0a0a14; }
+
+  .day-detail { margin-top: 20px; background: #11111f; border-radius: 14px; padding: 16px; display: none; }
+  .day-detail.open { display: block; }
+  .dd-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 14px; padding-bottom: 12px; border-bottom: 1px solid #1a1a2e; }
+  .dd-date { font-size: 15px; font-weight: 700; }
+  .dd-total { font-size: 18px; font-weight: 700; color: #F5C518; }
+  .breakdown { display: flex; gap: 8px; margin-bottom: 14px; }
+  .bd-item { flex: 1; display: flex; align-items: center; gap: 8px; }
+  .bd-method { font-size: 10px; color: #777; }
+  .bd-amt { font-size: 13px; font-weight: 700; }
+  .day-entries { display: flex; flex-direction: column; gap: 4px; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="topbar">
+    <span class="logo">SPENDI</span>
+    <select class="trip-select" id="tripSelect"></select>
+  </div>
+
+  <div class="trip-panel" id="tripPanel">
+    <div class="trip-panel-title">New trip</div>
+    <input class="text-input" type="text" placeholder="Trip name (e.g. Japan)" id="inpTripName" />
+    <select id="inpTripCurrency"></select>
+    <div class="trip-row">
+      <button class="btn-ghost" id="btnTripCancel">Cancel</button>
+      <button class="btn-primary" id="btnTripCreate">Create trip</button>
+    </div>
+    <button class="btn-danger-sm" id="btnTripDelete">Delete current trip</button>
+  </div>
+
+  <div class="header">
+    <div>
+      <div class="total-label">spent today</div>
+      <div class="total-amount" id="todayAmount"></div>
+      <div class="trip-total">trip total: <b id="tripTotal"></b></div>
+    </div>
+    <button class="btn-add" id="btnAdd">+ Add</button>
+  </div>
+
+  <div class="view-switch">
+    <button class="view-btn active" id="btnViewList">Expenses</button>
+    <button class="view-btn" id="btnViewCal">Calendar</button>
+  </div>
+
+  <div id="listView">
+    <div class="form-card" id="formCard">
+      <div class="form-row">
+        <input class="amount-input" type="number" inputmode="decimal" placeholder="0.00" id="inpAmount" />
+        <span class="currency" id="currencySymbol"></span>
+      </div>
+      <div class="form-row" id="methodPills"></div>
+      <div class="form-row method-add-row" id="methodAddRow">
+        <input class="text-input" type="text" placeholder="New payment method (e.g. Revolut)" id="inpNewMethod" style="flex:1" />
+        <button class="btn-primary" id="btnNewMethod" style="flex:0 0 auto; padding: 10px 16px">Add</button>
+      </div>
+      <select id="inpCategory"></select>
+      <input class="text-input" type="text" placeholder="Note (optional)" id="inpNote" />
+      <input class="text-input" type="date" id="inpDate" />
+      <button class="btn-submit" id="btnSubmit">Add Expense</button>
+    </div>
+    <div class="tabs" id="tabs"></div>
+    <div class="list" id="entryList"></div>
+  </div>
+
+  <div class="cal-wrap" id="calView">
+    <div class="cal-header">
+      <button class="cal-nav" id="calPrev">‹</button>
+      <div>
+        <div class="cal-month" id="calMonthLabel"></div>
+        <div class="cal-month-total" id="calMonthTotal"></div>
+      </div>
+      <button class="cal-nav" id="calNext">›</button>
+    </div>
+    <div class="cal-weekdays">
+      <div class="cal-wd">S</div><div class="cal-wd">M</div><div class="cal-wd">T</div>
+      <div class="cal-wd">W</div><div class="cal-wd">T</div><div class="cal-wd">F</div><div class="cal-wd">S</div>
+    </div>
+    <div class="cal-grid" id="calGrid"></div>
+    <div class="day-detail" id="dayDetail">
+      <div class="dd-header">
+        <span class="dd-date" id="ddDate"></span>
+        <span class="dd-total" id="ddTotal"></span>
+      </div>
+      <div class="breakdown" id="ddBreakdown"></div>
+      <div class="day-entries" id="ddEntries"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const CATEGORIES = ["Food & Drink","Transport","Shopping","Bills","Entertainment","Health","Other"];
+const DEFAULT_METHODS = [{ name: "Cash", color: "#F5C518" }, { name: "Card", color: "#1A73E8" }];
+const PALETTE = ["#6C47FF","#2ecc71","#e67e22","#e74c3c","#1abc9c","#f368e0","#48dbfb","#feca57"];
+function methods() { return state.methods; }
+function methodNames() { return state.methods.map(m => m.name); }
+function methodColor(name) {
+  const m = state.methods.find(x => x.name === name);
+  return m ? m.color : "#888";
+}
+function nextColor() {
+  const used = new Set(state.methods.map(m => m.color));
+  return PALETTE.find(c => !used.has(c)) || PALETTE[state.methods.length % PALETTE.length];
+}
+const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+const CURRENCIES = [
+  ["USD","US Dollar"],["EUR","Euro"],["ILS","Israeli Shekel"],["JPY","Japanese Yen"],
+  ["GBP","British Pound"],["THB","Thai Baht"],["AUD","Australian Dollar"],["NZD","NZ Dollar"],
+  ["CAD","Canadian Dollar"],["CHF","Swiss Franc"],["VND","Vietnamese Dong"],["IDR","Indonesian Rupiah"],
+  ["INR","Indian Rupee"],["KRW","Korean Won"],["CNY","Chinese Yuan"],["SGD","Singapore Dollar"],
+  ["MXN","Mexican Peso"],["BRL","Brazilian Real"],["ARS","Argentine Peso"],["PEN","Peruvian Sol"],
+  ["COP","Colombian Peso"],["TRY","Turkish Lira"],["EGP","Egyptian Pound"],["ZAR","South African Rand"],
+  ["AED","UAE Dirham"],["GEL","Georgian Lari"],["CZK","Czech Koruna"],["HUF","Hungarian Forint"],
+  ["PLN","Polish Zloty"],["SEK","Swedish Krona"],["NOK","Norwegian Krone"],["DKK","Danish Krone"]
+];
+
+const KEY = "spendi_v2";
+const OLD_KEY = "spendi_entries";
+
+let state = null;
+let activeMethod = "All";
+let selectedDay = null;
+const now = new Date();
+let calYear = now.getFullYear(), calMonth = now.getMonth();
+let formMethod = "Cash";
+
+const $ = (id) => document.getElementById(id);
+const todayStr = () => new Date().toISOString().split("T")[0];
+const uid = () => Date.now() + Math.floor(Math.random() * 1000);
+
+function trip() { return state.trips.find(t => t.id === state.activeTripId) || state.trips[0]; }
+
+function fmt(n) {
+  try {
+    return new Intl.NumberFormat(undefined, { style: "currency", currency: trip().currency }).format(n);
+  } catch (e) {
+    return trip().currency + " " + Number(n).toFixed(2);
+  }
+}
+function currencySymbol() {
+  try {
+    const parts = new Intl.NumberFormat(undefined, { style: "currency", currency: trip().currency }).formatToParts(0);
+    const sym = parts.find(p => p.type === "currency");
+    return sym ? sym.value : trip().currency;
+  } catch (e) { return trip().currency; }
+}
+
+// ---------- persistence (auto-save on every mutation) ----------
+function persist() {
+  try {
+    localStorage.setItem(KEY, JSON.stringify(state));
+  } catch (e) {
+    alert("Save failed: " + e.message);
+  }
+}
+function load() {
+  try {
+    const raw = localStorage.getItem(KEY);
+    if (raw) {
+      state = JSON.parse(raw);
+      ensureMethods();
+      return;
+    }
+  } catch (e) {}
+  // migrate from v1 if present
+  let migrated = [];
+  try {
+    const old = localStorage.getItem(OLD_KEY);
+    if (old) migrated = JSON.parse(old);
+  } catch (e) {}
+  const firstTrip = { id: uid(), name: "General", currency: "USD", entries: migrated };
+  state = { trips: [firstTrip], activeTripId: firstTrip.id, methods: JSON.parse(JSON.stringify(DEFAULT_METHODS)) };
+  ensureMethods();
+  persist();
+}
+function ensureMethods() {
+  if (!state.methods || !state.methods.length) state.methods = JSON.parse(JSON.stringify(DEFAULT_METHODS));
+  // any method name used by an entry but missing from the list gets added (keeps old data valid)
+  const known = new Set(state.methods.map(m => m.name));
+  for (const t of state.trips) {
+    for (const e of t.entries) {
+      if (!known.has(e.method)) {
+        state.methods.push({ name: e.method, color: nextColor() });
+        known.add(e.method);
+      }
+    }
+  }
+}
+function addMethod(name) {
+  name = name.trim();
+  if (!name) return false;
+  if (state.methods.some(m => m.name.toLowerCase() === name.toLowerCase())) return false;
+  state.methods.push({ name, color: nextColor() });
+  persist();
+  return true;
+}
+
+// ---------- mutations (each persists immediately) ----------
+function addExpense() {
+  const amt = parseFloat($("inpAmount").value);
+  if (!amt || amt <= 0) return;
+  trip().entries.unshift({
+    id: uid(),
+    amount: amt,
+    method: formMethod,
+    category: $("inpCategory").value,
+    note: $("inpNote").value.trim(),
+    date: $("inpDate").value || todayStr(),
+  });
+  persist();
+  $("inpAmount").value = "";
+  $("inpNote").value = "";
+  $("inpDate").value = todayStr();
+  $("formCard").classList.remove("open");
+  $("btnAdd").textContent = "+ Add";
+  render();
+}
+function delEntry(id) {
+  trip().entries = trip().entries.filter(e => e.id !== id);
+  persist();
+  render();
+}
+function createTrip() {
+  const name = $("inpTripName").value.trim();
+  if (!name) return;
+  const t = { id: uid(), name, currency: $("inpTripCurrency").value, entries: [] };
+  state.trips.push(t);
+  state.activeTripId = t.id;
+  persist();
+  $("inpTripName").value = "";
+  $("tripPanel").classList.remove("open");
+  selectedDay = null;
+  render();
+}
+function deleteTrip() {
+  if (state.trips.length <= 1) { alert("You need at least one trip."); return; }
+  const t = trip();
+  if (!confirm(`Delete "${t.name}" and all its expenses? This can't be undone.`)) return;
+  state.trips = state.trips.filter(x => x.id !== t.id);
+  state.activeTripId = state.trips[0].id;
+  persist();
+  $("tripPanel").classList.remove("open");
+  selectedDay = null;
+  render();
+}
+function switchTrip(val) {
+  if (val === "__new__") {
+    $("tripPanel").classList.add("open");
+    renderTripSelect(); // reset selection display to current trip
+    return;
+  }
+  state.activeTripId = Number(val);
+  persist();
+  selectedDay = null;
+  activeMethod = "All";
+  render();
+}
+
+// ---------- derived ----------
+function totals() {
+  const t = { All: 0 };
+  for (const m of state.methods) t[m.name] = 0;
+  for (const e of trip().entries) { t.All += e.amount; t[e.method] = (t[e.method] || 0) + e.amount; }
+  return t;
+}
+function todayTotal() {
+  const td = todayStr();
+  return trip().entries.filter(e => e.date === td).reduce((s, e) => s + e.amount, 0);
+}
+function dayTotals() {
+  const m = {};
+  for (const e of trip().entries) m[e.date] = (m[e.date] || 0) + e.amount;
+  return m;
+}
+
+// ---------- render ----------
+function renderTripSelect() {
+  $("tripSelect").innerHTML =
+    state.trips.map(t => `<option value="${t.id}" ${t.id === state.activeTripId ? "selected" : ""}>${escapeHtml(t.name)} (${t.currency})</option>`).join("")
+    + `<option value="__new__">＋ New trip…</option>`;
+}
+function renderHeader() {
+  $("todayAmount").textContent = fmt(todayTotal());
+  $("tripTotal").textContent = fmt(totals().All);
+  $("currencySymbol").textContent = currencySymbol();
+}
+function renderTabs() {
+  const t = totals();
+  $("tabs").innerHTML = ["All", ...methodNames()].map(m => {
+    const color = m === "All" ? "#F5C518" : methodColor(m);
+    const active = activeMethod === m;
+    return `<button class="tab ${active?"active":""}" style="border-bottom-color:${active?color:"transparent"}" onclick="setMethod('${m}')">
+      <span>${m}</span><span class="amt">${fmt(t[m]||0)}</span></button>`;
+  }).join("");
+}
+function setMethod(m) { activeMethod = m; render(); }
+
+function entryRow(e, showDate) {
+  return `<div class="entry">
+    <div class="dot" style="background:${methodColor(e.method)}"></div>
+    <div class="entry-info">
+      <div class="entry-cat">${e.category}</div>
+      ${e.note ? `<div class="entry-note">${escapeHtml(e.note)}</div>` : ""}
+      <div class="entry-meta">${e.method}${showDate ? " · " + e.date : ""}</div>
+    </div>
+    <div class="entry-right">
+      <div class="entry-amt">${fmt(e.amount)}</div>
+      <button class="btn-del" onclick="delEntry(${e.id})">✕</button>
+    </div>
+  </div>`;
+}
+function escapeHtml(s){const d=document.createElement("div");d.textContent=s;return d.innerHTML;}
+
+function renderList() {
+  const filtered = activeMethod === "All" ? trip().entries : trip().entries.filter(e => e.method === activeMethod);
+  $("entryList").innerHTML = filtered.length === 0
+    ? `<div class="empty">No expenses in ${escapeHtml(trip().name)} yet. Hit + Add to start.</div>`
+    : filtered.map(e => entryRow(e, true)).join("");
+}
+
+function renderCalendar() {
+  const dt = dayTotals();
+  const first = new Date(calYear, calMonth, 1);
+  const startWd = first.getDay();
+  const days = new Date(calYear, calMonth + 1, 0).getDate();
+  const max = Math.max(0, ...Object.values(dt));
+  let monthTotal = 0;
+  let html = "";
+  for (let i = 0; i < startWd; i++) html += `<div></div>`;
+  for (let d = 1; d <= days; d++) {
+    const ds = `${calYear}-${String(calMonth+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
+    const total = dt[ds] || 0;
+    monthTotal += total;
+    const bg = total > 0 ? `rgba(26,115,232,${0.15 + 0.55*(total/(max||1))})` : "#11111f";
+    const sel = ds === selectedDay ? "selected" : "";
+    const amtLabel = total > 0 ? `<span class="camt">${total >= 1000 ? Math.round(total/1000)+"k" : Math.round(total)}</span>` : "";
+    html += `<button class="cal-cell ${sel}" style="background:${bg}" onclick="pickDay('${ds}')">
+      <span class="num">${d}</span>${amtLabel}</button>`;
+  }
+  $("calGrid").innerHTML = html;
+  $("calMonthLabel").textContent = `${MONTHS[calMonth]} ${calYear}`;
+  $("calMonthTotal").textContent = fmt(monthTotal);
+  renderDayDetail();
+}
+function pickDay(ds) { selectedDay = selectedDay === ds ? null : ds; renderCalendar(); }
+
+function renderDayDetail() {
+  const dd = $("dayDetail");
+  if (!selectedDay) { dd.classList.remove("open"); return; }
+  dd.classList.add("open");
+  const dayEntries = trip().entries.filter(e => e.date === selectedDay);
+  const breakdown = {};
+  for (const m of state.methods) breakdown[m.name] = 0;
+  let total = 0;
+  for (const e of dayEntries) { breakdown[e.method] = (breakdown[e.method] || 0) + e.amount; total += e.amount; }
+  $("ddDate").textContent = selectedDay;
+  $("ddTotal").textContent = fmt(total);
+  $("ddBreakdown").innerHTML = methodNames().filter(m => breakdown[m] > 0).map(m =>
+    `<div class="bd-item"><div class="dot" style="background:${methodColor(m)}"></div>
+     <div><div class="bd-method">${m}</div><div class="bd-amt">${fmt(breakdown[m])}</div></div></div>`).join("") || '<div class="bd-method" style="padding:4px 0">No spending</div>';
+  $("ddEntries").innerHTML = dayEntries.length === 0
+    ? `<div class="empty">No expenses this day.</div>`
+    : dayEntries.map(e => entryRow(e, false)).join("");
+}
+
+function renderMethodPills() {
+  const pills = methodNames().map(m => {
+    const on = m === formMethod;
+    const c = methodColor(m);
+    return `<button class="method-pill" style="${on?`background:${c};color:#0a0a14;border-color:${c}`:""}"
+      onclick="setFormMethod('${m.replace(/'/g, "\\'")}')">${escapeHtml(m)}</button>`;
+  }).join("");
+  $("methodPills").innerHTML = pills + `<button class="method-pill method-add" onclick="toggleMethodAdd()">＋</button>`;
+}
+function toggleMethodAdd() {
+  $("methodAddRow").classList.toggle("open");
+  if ($("methodAddRow").classList.contains("open")) $("inpNewMethod").focus();
+}
+function submitNewMethod() {
+  const name = $("inpNewMethod").value;
+  if (addMethod(name)) {
+    formMethod = name.trim();
+    $("inpNewMethod").value = "";
+    $("methodAddRow").classList.remove("open");
+    render();
+    $("formCard").classList.add("open");
+    $("btnAdd").textContent = "✕";
+  }
+}
+function setFormMethod(m) { formMethod = m; renderMethodPills(); }
+
+function render() {
+  renderTripSelect();
+  renderHeader();
+  renderMethodPills();
+  renderTabs();
+  renderList();
+  renderCalendar();
+}
+
+// ---------- wiring ----------
+$("btnAdd").onclick = () => {
+  const fc = $("formCard");
+  fc.classList.toggle("open");
+  $("btnAdd").textContent = fc.classList.contains("open") ? "✕" : "+ Add";
+  switchView("list");
+  if (fc.classList.contains("open")) $("inpAmount").focus();
+};
+$("btnSubmit").onclick = addExpense;
+$("btnNewMethod").onclick = submitNewMethod;
+$("inpNewMethod").addEventListener("keydown", (e) => { if (e.key === "Enter") submitNewMethod(); });
+$("tripSelect").onchange = (e) => switchTrip(e.target.value);
+$("btnTripCreate").onclick = createTrip;
+$("btnTripCancel").onclick = () => $("tripPanel").classList.remove("open");
+$("btnTripDelete").onclick = deleteTrip;
+$("btnViewList").onclick = () => switchView("list");
+$("btnViewCal").onclick = () => switchView("cal");
+$("calPrev").onclick = () => shiftMonth(-1);
+$("calNext").onclick = () => shiftMonth(1);
+
+function switchView(v) {
+  $("btnViewList").classList.toggle("active", v === "list");
+  $("btnViewCal").classList.toggle("active", v === "cal");
+  $("listView").style.display = v === "list" ? "block" : "none";
+  $("calView").classList.toggle("open", v === "cal");
+}
+function shiftMonth(dir) {
+  selectedDay = null;
+  calMonth += dir;
+  if (calMonth < 0) { calMonth = 11; calYear--; }
+  if (calMonth > 11) { calMonth = 0; calYear++; }
+  renderCalendar();
+}
+
+window.setMethod = setMethod;
+window.toggleMethodAdd = toggleMethodAdd;
+window.pickDay = pickDay;
+window.setFormMethod = setFormMethod;
+window.delEntry = delEntry;
+
+// ---------- init ----------
+$("inpCategory").innerHTML = CATEGORIES.map(c => `<option>${c}</option>`).join("");
+$("inpTripCurrency").innerHTML = CURRENCIES.map(([code, name]) => `<option value="${code}">${code} — ${name}</option>`).join("");
+$("inpDate").value = todayStr();
+load();
+renderMethodPills();
+render();
+
+// Offline support: register service worker (only works over https/localhost, ignored elsewhere)
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("./sw.js").catch(() => {});
+}
+</script>
+</body>
+</html>
