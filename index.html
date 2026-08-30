@@ -31,6 +31,13 @@
   .total-label { font-size: 11px; color: #555; letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 4px; }
   .total-amount { font-size: 38px; font-weight: 700; letter-spacing: -0.02em; }
   .trip-total { font-size: 13px; color: #888; margin-top: 6px; }
+  #ilsEquiv { color: #666; margin-left: 6px; }
+  .budget-wrap { margin-top: 10px; display: none; }
+  .budget-wrap.on { display: block; }
+  .budget-bar { height: 6px; background: #1a1a2e; border-radius: 3px; overflow: hidden; width: 200px; }
+  .budget-fill { height: 100%; border-radius: 3px; background: #1A73E8; transition: width 0.3s; }
+  .budget-label { font-size: 11px; color: #888; margin-top: 5px; }
+  .budget-label b { color: #fff; }
   .trip-total b { color: #F5C518; font-weight: 700; }
   .btn-add {
     background: #F5C518; color: #0a0a14; border: none; border-radius: 8px;
@@ -38,6 +45,40 @@
   }
 
   /* new trip panel */
+  .trip-menu {
+    display: none; margin: 10px 16px 0; background: #11111f;
+    border: 1px solid #2a2a3e; border-radius: 12px; overflow: hidden;
+  }
+  .trip-menu.open { display: block; }
+  .tm-row { display: flex; align-items: stretch; border-bottom: 1px solid #1a1a2e; }
+  .tm-row:last-child { border-bottom: none; }
+  .tm-name {
+    flex: 1; background: none; border: none; color: #ccc; text-align: left;
+    padding: 14px; font-size: 14px; font-weight: 600;
+    display: flex; justify-content: space-between; align-items: center; gap: 10px;
+  }
+  .tm-total { font-size: 12px; color: #F5C518; font-weight: 700; white-space: nowrap; }
+  .tm-grand {
+    padding: 12px 14px; font-size: 12px; color: #888;
+    border-bottom: 1px solid #1a1a2e; background: #0d0d18;
+  }
+  .tm-grand b { color: #F5C518; }
+  .tm-name.active { color: #F5C518; }
+  .tm-dots {
+    background: none; border: none; border-left: 1px solid #1a1a2e; color: #777;
+    padding: 0 18px; font-size: 18px; font-weight: 700;
+  }
+  .tm-actions { display: none; gap: 8px; padding: 0 14px 12px; background: #0d0d18; }
+  .tm-actions.open { display: flex; }
+  .tm-act {
+    flex: 1; border-radius: 7px; padding: 9px; font-size: 12px; font-weight: 600;
+    background: #1a1a2e; border: 1px solid #2a2a3e; color: #ccc;
+  }
+  .tm-act.danger { color: #e74c3c; border-color: #5c2a2a; }
+  .tm-new {
+    width: 100%; background: none; border: none; color: #F5C518;
+    padding: 14px; font-size: 14px; font-weight: 700;
+  }
   .trip-panel {
     margin: 0 16px 14px; background: #11111f; border: 1px solid #2a2a3e;
     border-radius: 14px; padding: 16px; display: none; flex-direction: column; gap: 10px;
@@ -54,6 +95,11 @@
     background: #1a1a2e; color: #aaa; border: 1px solid #2a2a3e; border-radius: 8px;
     padding: 11px; font-weight: 600; font-size: 14px;
   }
+  .panel-err {
+    display: none; font-size: 12px; color: #e74c3c; background: rgba(192,57,43,0.12);
+    border: 1px solid #5c2a2a; border-radius: 7px; padding: 8px 10px;
+  }
+  .panel-err.on { display: block; }
   .btn-danger-sm {
     background: none; border: 1px solid #5c2a2a; border-radius: 7px;
     color: #c0392b; padding: 8px 12px; font-size: 12px; font-weight: 600;
@@ -153,27 +199,51 @@
 </head>
 <body>
 <div id="app">
+  <div id="saveFailBanner" style="display:none; margin:12px 16px 0; padding:10px 12px; background:rgba(192,57,43,0.15); border:1px solid #c0392b; border-radius:8px; color:#e74c3c; font-size:12px;"></div>
   <div class="topbar">
     <span class="logo">SPENDI</span>
-    <select class="trip-select" id="tripSelect"></select>
+    <button class="trip-select" id="tripBtn"></button>
   </div>
 
+  <div class="trip-menu" id="tripMenu"></div>
+
   <div class="trip-panel" id="tripPanel">
+    <div id="settingsSection" style="display:none; flex-direction:column; gap:10px;">
+      <div class="trip-panel-title" id="settingsTitle">Trip settings</div>
+      <input class="text-input" type="text" placeholder="Trip name" id="inpEditName" />
+      <input class="text-input" type="number" inputmode="decimal" placeholder="Total budget (optional)" id="inpBudget" />
+      <div class="trip-row" id="rateRow">
+        <input class="text-input" type="number" inputmode="decimal" placeholder="Rate: 1 unit = ? ₪" id="inpRate" step="any" />
+      </div>
+      <div class="panel-err" id="settingsErr"></div>
+      <div class="trip-row">
+        <button class="btn-ghost" id="btnSettingsCancel">Cancel</button>
+        <button class="btn-primary" id="btnSaveSettings">Save</button>
+      </div>
+    </div>
+    <div id="newSection" style="display:none; flex-direction:column; gap:10px;">
     <div class="trip-panel-title">New trip</div>
     <input class="text-input" type="text" placeholder="Trip name (e.g. Japan)" id="inpTripName" />
     <select id="inpTripCurrency"></select>
+    <input class="text-input" type="number" inputmode="decimal" placeholder="Rate: 1 unit = ? ₪" id="inpNewRate" step="any" />
+    <input class="text-input" type="number" inputmode="decimal" placeholder="Total budget (optional)" id="inpNewBudget" />
+    <div class="panel-err" id="tripErr"></div>
     <div class="trip-row">
       <button class="btn-ghost" id="btnTripCancel">Cancel</button>
       <button class="btn-primary" id="btnTripCreate">Create trip</button>
     </div>
-    <button class="btn-danger-sm" id="btnTripDelete">Delete current trip</button>
+    </div>
   </div>
 
   <div class="header">
     <div>
       <div class="total-label">spent today</div>
       <div class="total-amount" id="todayAmount"></div>
-      <div class="trip-total">trip total: <b id="tripTotal"></b></div>
+      <div class="trip-total">trip total: <b id="tripTotal"></b><span id="ilsEquiv"></span></div>
+      <div class="budget-wrap" id="budgetWrap">
+        <div class="budget-bar"><div class="budget-fill" id="budgetFill"></div></div>
+        <div class="budget-label" id="budgetLabel"></div>
+      </div>
     </div>
     <button class="btn-add" id="btnAdd">+ Add</button>
   </div>
@@ -247,7 +317,7 @@ const CURRENCIES = [
   ["USD","US Dollar"],["EUR","Euro"],["ILS","Israeli Shekel"],["JPY","Japanese Yen"],
   ["GBP","British Pound"],["THB","Thai Baht"],["AUD","Australian Dollar"],["NZD","NZ Dollar"],
   ["CAD","Canadian Dollar"],["CHF","Swiss Franc"],["VND","Vietnamese Dong"],["IDR","Indonesian Rupiah"],
-  ["INR","Indian Rupee"],["KRW","Korean Won"],["CNY","Chinese Yuan"],["SGD","Singapore Dollar"],
+  ["INR","Indian Rupee"],["NPR","Nepalese Rupee"],["KRW","Korean Won"],["CNY","Chinese Yuan"],["SGD","Singapore Dollar"],
   ["MXN","Mexican Peso"],["BRL","Brazilian Real"],["ARS","Argentine Peso"],["PEN","Peruvian Sol"],
   ["COP","Colombian Peso"],["TRY","Turkish Lira"],["EGP","Egyptian Pound"],["ZAR","South African Rand"],
   ["AED","UAE Dirham"],["GEL","Georgian Lari"],["CZK","Czech Koruna"],["HUF","Hungarian Forint"],
@@ -277,6 +347,12 @@ function fmt(n) {
     return trip().currency + " " + Number(n).toFixed(2);
   }
 }
+function ilsFmt(n) {
+  try { return new Intl.NumberFormat("he-IL", { style: "currency", currency: "ILS", maximumFractionDigits: 0 }).format(n); }
+  catch (e) { return "₪" + Math.round(n); }
+}
+function hasIls() { return trip().currency !== "ILS" && trip().ilsRate > 0; }
+function ilsEq(n) { return hasIls() ? ` ≈ ${ilsFmt(n * trip().ilsRate)}` : ""; }
 function currencySymbol() {
   try {
     const parts = new Intl.NumberFormat(undefined, { style: "currency", currency: trip().currency }).formatToParts(0);
@@ -289,8 +365,10 @@ function currencySymbol() {
 function persist() {
   try {
     localStorage.setItem(KEY, JSON.stringify(state));
+    $("saveFailBanner").style.display = "none";
   } catch (e) {
-    alert("Save failed: " + e.message);
+    $("saveFailBanner").textContent = "⚠ Save failed: " + e.message;
+    $("saveFailBanner").style.display = "block";
   }
 }
 function load() {
@@ -299,6 +377,7 @@ function load() {
     if (raw) {
       state = JSON.parse(raw);
       ensureMethods();
+      ensureDefaults();
       return;
     }
   } catch (e) {}
@@ -311,7 +390,12 @@ function load() {
   const firstTrip = { id: uid(), name: "General", currency: "USD", entries: migrated };
   state = { trips: [firstTrip], activeTripId: firstTrip.id, methods: JSON.parse(JSON.stringify(DEFAULT_METHODS)) };
   ensureMethods();
+  ensureDefaults();
   persist();
+}
+function ensureDefaults() {
+  if (!state.lastMethod) state.lastMethod = state.methods[0].name;
+  if (!state.lastCategory) state.lastCategory = CATEGORIES[0];
 }
 function ensureMethods() {
   if (!state.methods || !state.methods.length) state.methods = JSON.parse(JSON.stringify(DEFAULT_METHODS));
@@ -347,6 +431,8 @@ function addExpense() {
     note: $("inpNote").value.trim(),
     date: $("inpDate").value || todayStr(),
   });
+  state.lastMethod = formMethod;
+  state.lastCategory = $("inpCategory").value;
   persist();
   $("inpAmount").value = "";
   $("inpNote").value = "";
@@ -360,41 +446,59 @@ function delEntry(id) {
   persist();
   render();
 }
+function panelErr(msg) {
+  const el = $("tripErr");
+  el.textContent = msg;
+  el.classList.add("on");
+  setTimeout(() => el.classList.remove("on"), 3500);
+}
 function createTrip() {
   const name = $("inpTripName").value.trim();
-  if (!name) return;
-  const t = { id: uid(), name, currency: $("inpTripCurrency").value, entries: [] };
+  const cur = $("inpTripCurrency").value;
+  const r = parseFloat($("inpNewRate").value);
+  if (!name) { panelErr("Give the trip a name."); return; }
+  if (cur !== "ILS" && (!r || r <= 0)) {
+    panelErr(`Add the rate first: 1 ${cur} = ? ₪ (look it up before you land).`);
+    return;
+  }
+  const b = parseFloat($("inpNewBudget").value);
+  const t = {
+    id: uid(), name, currency: $("inpTripCurrency").value, entries: [],
+    ilsRate: (r && r > 0) ? r : null,
+    budget: (b && b > 0) ? b : null,
+  };
   state.trips.push(t);
   state.activeTripId = t.id;
   persist();
   $("inpTripName").value = "";
+  $("inpNewRate").value = "";
+  $("inpNewBudget").value = "";
   $("tripPanel").classList.remove("open");
   selectedDay = null;
   render();
 }
-function deleteTrip() {
-  if (state.trips.length <= 1) { alert("You need at least one trip."); return; }
-  const t = trip();
-  if (!confirm(`Delete "${t.name}" and all its expenses? This can't be undone.`)) return;
-  state.trips = state.trips.filter(x => x.id !== t.id);
-  state.activeTripId = state.trips[0].id;
+function settingsErr(msg) {
+  const el = $("settingsErr");
+  el.textContent = msg;
+  el.classList.add("on");
+  setTimeout(() => el.classList.remove("on"), 3500);
+}
+function saveTripSettings() {
+  const t = state.trips.find(x => x.id === settingsTripId);
+  if (!t) return;
+  const name = $("inpEditName").value.trim();
+  if (!name) { settingsErr("Trip needs a name."); return; }
+  const r = parseFloat($("inpRate").value);
+  if (t.currency !== "ILS" && (!r || r <= 0)) { settingsErr(`Rate is required: 1 ${t.currency} = ? ₪`); return; }
+  t.name = name;
+  const b = parseFloat($("inpBudget").value);
+  t.budget = (b && b > 0) ? b : null;
+  t.ilsRate = t.currency === "ILS" ? null : r;
   persist();
   $("tripPanel").classList.remove("open");
-  selectedDay = null;
   render();
 }
-function switchTrip(val) {
-  if (val === "__new__") {
-    $("tripPanel").classList.add("open");
-    renderTripSelect(); // reset selection display to current trip
-    return;
-  }
-  state.activeTripId = Number(val);
-  persist();
-  selectedDay = null;
-  activeMethod = "All";
-  render();
-}
+
 
 // ---------- derived ----------
 function totals() {
@@ -414,15 +518,129 @@ function dayTotals() {
 }
 
 // ---------- render ----------
-function renderTripSelect() {
-  $("tripSelect").innerHTML =
-    state.trips.map(t => `<option value="${t.id}" ${t.id === state.activeTripId ? "selected" : ""}>${escapeHtml(t.name)} (${t.currency})</option>`).join("")
-    + `<option value="__new__">＋ New trip…</option>`;
+let menuActionsFor = null;
+let armedDeleteId = null;
+let armedTimer = null;
+let settingsTripId = null;
+
+function tripSum(t) { return t.entries.reduce((s, e) => s + e.amount, 0); }
+function tripTotalIls(t) {
+  const sum = tripSum(t);
+  if (t.currency === "ILS") return sum;
+  if (t.ilsRate > 0) return sum * t.ilsRate;
+  return null;
+}
+function renderTripBtn() {
+  $("tripBtn").textContent = `${trip().name} (${trip().currency}) ▾`;
+}
+function renderTripMenu() {
+  const grand = state.trips.reduce((s, t) => s + (tripTotalIls(t) ?? 0), 0);
+  $("tripMenu").innerHTML = state.trips.map(t => {
+    const ils = tripTotalIls(t);
+    const totalLabel = ils !== null
+      ? ilsFmt(ils)
+      : new Intl.NumberFormat(undefined, { style: "currency", currency: t.currency, maximumFractionDigits: 0 }).format(tripSum(t));
+    return `
+    <div class="tm-row">
+      <button class="tm-name ${t.id === state.activeTripId ? "active" : ""}" onclick="pickTrip(${t.id})">
+        <span>${escapeHtml(t.name)} (${t.currency})</span>
+        <span class="tm-total">${totalLabel}</span>
+      </button>
+      <button class="tm-dots" onclick="toggleActions(${t.id})">⋯</button>
+    </div>
+    <div class="tm-actions ${menuActionsFor === t.id ? "open" : ""}">
+      <button class="tm-act" onclick="openSettings(${t.id})">Settings</button>
+      <button class="tm-act danger" id="del-${t.id}" onclick="menuDelete(${t.id})">${armedDeleteId === t.id ? "Tap again to delete" : "Delete"}</button>
+    </div>
+  `;}).join("")
+  + `<div class="tm-grand">All trips: <b>${ilsFmt(grand)}</b></div>`
+  + `<button class="tm-new" onclick="openNewTrip()">＋ New trip</button>`;
+}
+function toggleMenu(force) {
+  const m = $("tripMenu");
+  const open = force !== undefined ? force : !m.classList.contains("open");
+  m.classList.toggle("open", open);
+  if (open) { menuActionsFor = null; disarmDelete(); renderTripMenu(); }
+}
+function pickTrip(id) {
+  state.activeTripId = id;
+  persist();
+  selectedDay = null;
+  activeMethod = "All";
+  toggleMenu(false);
+  render();
+}
+function toggleActions(id) {
+  menuActionsFor = menuActionsFor === id ? null : id;
+  disarmDelete();
+  renderTripMenu();
+}
+function disarmDelete() {
+  armedDeleteId = null;
+  if (armedTimer) { clearTimeout(armedTimer); armedTimer = null; }
+}
+function menuDelete(id) {
+  const t = state.trips.find(x => x.id === id);
+  if (!t) return;
+  const btn = $("del-" + id);
+  if (state.trips.length <= 1) {
+    btn.textContent = "Create another trip first";
+    setTimeout(() => { if ($("del-" + id)) $("del-" + id).textContent = "Delete"; }, 2500);
+    return;
+  }
+  if (armedDeleteId !== id) {
+    armedDeleteId = id;
+    btn.textContent = "Tap again to delete";
+    armedTimer = setTimeout(() => { disarmDelete(); renderTripMenu(); }, 4000);
+    return;
+  }
+  disarmDelete();
+  state.trips = state.trips.filter(x => x.id !== id);
+  if (state.activeTripId === id) state.activeTripId = state.trips[0].id;
+  persist();
+  selectedDay = null;
+  renderTripMenu();
+  render();
+}
+function openSettings(id) {
+  settingsTripId = id;
+  const t = state.trips.find(x => x.id === id);
+  $("settingsTitle").textContent = `Settings — ${t.name} (${t.currency})`;
+  $("inpEditName").value = t.name;
+  $("inpBudget").value = t.budget || "";
+  $("inpRate").value = t.ilsRate || "";
+  $("rateRow").style.display = t.currency === "ILS" ? "none" : "flex";
+  $("settingsSection").style.display = "flex";
+  $("newSection").style.display = "none";
+  toggleMenu(false);
+  $("tripPanel").classList.add("open");
+}
+function openNewTrip() {
+  $("settingsSection").style.display = "none";
+  $("newSection").style.display = "flex";
+  toggleMenu(false);
+  $("tripPanel").classList.add("open");
 }
 function renderHeader() {
+  const all = totals().All;
   $("todayAmount").textContent = fmt(todayTotal());
-  $("tripTotal").textContent = fmt(totals().All);
+  $("tripTotal").textContent = fmt(all);
+  $("ilsEquiv").textContent = ilsEq(all);
   $("currencySymbol").textContent = currencySymbol();
+  const bw = $("budgetWrap");
+  if (trip().budget > 0) {
+    bw.classList.add("on");
+    const pct = Math.min(100, (all / trip().budget) * 100);
+    const left = trip().budget - all;
+    const fill = $("budgetFill");
+    fill.style.width = pct + "%";
+    fill.style.background = pct >= 90 ? "#e74c3c" : pct >= 70 ? "#e67e22" : "#1A73E8";
+    $("budgetLabel").innerHTML = left >= 0
+      ? `<b>${fmt(left)}</b>${ilsEq(left)} left of ${fmt(trip().budget)}`
+      : `<b style="color:#e74c3c">${fmt(-left)} over</b> budget of ${fmt(trip().budget)}`;
+  } else {
+    bw.classList.remove("on");
+  }
 }
 function renderTabs() {
   const t = totals();
@@ -530,7 +748,8 @@ function submitNewMethod() {
 function setFormMethod(m) { formMethod = m; renderMethodPills(); }
 
 function render() {
-  renderTripSelect();
+  renderTripBtn();
+  if ($("tripMenu").classList.contains("open")) renderTripMenu();
   renderHeader();
   renderMethodPills();
   renderTabs();
@@ -547,12 +766,13 @@ $("btnAdd").onclick = () => {
   if (fc.classList.contains("open")) $("inpAmount").focus();
 };
 $("btnSubmit").onclick = addExpense;
+$("btnSaveSettings").onclick = saveTripSettings;
 $("btnNewMethod").onclick = submitNewMethod;
 $("inpNewMethod").addEventListener("keydown", (e) => { if (e.key === "Enter") submitNewMethod(); });
-$("tripSelect").onchange = (e) => switchTrip(e.target.value);
+$("tripBtn").onclick = () => toggleMenu();
 $("btnTripCreate").onclick = createTrip;
 $("btnTripCancel").onclick = () => $("tripPanel").classList.remove("open");
-$("btnTripDelete").onclick = deleteTrip;
+$("btnSettingsCancel").onclick = () => $("tripPanel").classList.remove("open");
 $("btnViewList").onclick = () => switchView("list");
 $("btnViewCal").onclick = () => switchView("cal");
 $("calPrev").onclick = () => shiftMonth(-1);
@@ -577,10 +797,25 @@ window.toggleMethodAdd = toggleMethodAdd;
 window.pickDay = pickDay;
 window.setFormMethod = setFormMethod;
 window.delEntry = delEntry;
+window.pickTrip = pickTrip;
+window.toggleActions = toggleActions;
+window.menuDelete = menuDelete;
+window.openSettings = openSettings;
+window.openNewTrip = openNewTrip;
 
 // ---------- init ----------
 $("inpCategory").innerHTML = CATEGORIES.map(c => `<option>${c}</option>`).join("");
-$("inpTripCurrency").innerHTML = CURRENCIES.map(([code, name]) => `<option value="${code}">${code} — ${name}</option>`).join("");
+function symbolFor(code) {
+  try {
+    const parts = new Intl.NumberFormat("en", { style: "currency", currency: code }).formatToParts(0);
+    const c = parts.find(p => p.type === "currency");
+    return c ? c.value : code;
+  } catch (e) { return code; }
+}
+$("inpTripCurrency").innerHTML = CURRENCIES.map(([code, name]) => `<option value="${code}">${symbolFor(code)}  ${code} — ${name}</option>`).join("");
+$("inpTripCurrency").onchange = () => {
+  $("inpNewRate").style.display = $("inpTripCurrency").value === "ILS" ? "none" : "block";
+};
 $("inpDate").value = todayStr();
 load();
 renderMethodPills();
