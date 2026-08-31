@@ -11,7 +11,7 @@ Personal travel spending tracker (PWA). Owner: Sam. Built iteratively with Claud
 ## Data model (localStorage `spendi_v2`)
 ```json
 {
-  "trips": [{ "id": 123, "name": "Japan", "currency": "JPY", "ilsRate": 0.024, "budget": 300000, "entries": [
+  "trips": [{ "id": 123, "name": "Japan", "currency": "JPY", "ilsRate": 0.024, "entries": [
     { "id": 456, "amount": 4500, "method": "Cash", "category": "Food & Drink", "note": "", "date": "2026-12-01" }
   ]}],
   "activeTripId": 123,
@@ -21,15 +21,16 @@ Personal travel spending tracker (PWA). Owner: Sam. Built iteratively with Claud
 }
 ```
 - Never break backward compatibility with stored data. If the schema changes, write a migration in `load()` (see existing v1→v2 migration pattern).
+- Trips saved before 2026-08-31 may also carry a `budget` number. The budget feature was removed at Sam's request; the field is simply ignored and deliberately left in storage rather than stripped, so nothing is destroyed if it ever comes back.
 
 ## Hard rules
 1. **iOS home-screen apps suppress `alert()` / `confirm()` / `prompt()`.** Never use them. Use inline notices (`.panel-err`), in-app banners, or two-tap confirm patterns (see `menuDelete`).
-2. **Bump the cache version in `sw.js`** (currently `spendi-v3`; go to `spendi-v4` next) on EVERY deployed change, or phones keep serving the stale cached version.
+2. **Bump the cache version in `sw.js`** (currently `spendi-v4`; go to `spendi-v5` next) on EVERY deployed change, or phones keep serving the stale cached version.
 3. **Auto-save**: every state mutation must call `persist()` immediately. There is no save button by design.
-4. **Offline-first**: the app must load and work fully with no signal. The only network call allowed is the ₪ rate lookup, and only when the user taps "↻ Fetch" (`open.er-api.com`, no API key, all 33 listed currencies). It must never run on load, never block anything, and always fall back to typing the rate by hand. Rates are still stored per trip — nothing is fetched at render time.
-5. Currency is set at trip creation and never editable afterward. Rate to ₪ (`ilsRate`) is mandatory for non-ILS trips (validated in `createTrip` and `saveTripSettings`). Note this means the auto-created "General" trip (USD, no rate) cannot be saved from settings until a rate is entered — that is intended, not a bug.
+4. **Offline-first**: the app must load and work fully with no signal — viewing trips, adding expenses, the calendar, all of it. The only network call allowed is the ₪ rate lookup, and only when the user taps "↻ Fetch" (`open.er-api.com`, no API key, all 33 listed currencies). It must never run on load and never block anything. Rates are stored per trip; nothing is fetched at render time.
+5. **The rate is fetched, never typed.** Both rate inputs are `readonly` and are only ever written by `fetchRate`. Deliberate consequence, requested by Sam: creating or re-rating a non-ILS trip needs a connection, so the error copy says exactly that. Currency is still set at trip creation and never editable afterward, and `ilsRate` is still mandatory for non-ILS trips (validated in `createTrip` and `saveTripSettings`). This also means the auto-created "General" trip (USD, no rate) cannot be saved from settings until a rate is fetched — intended, not a bug.
 6. A slow rate lookup must never write into the field after the user has changed currency or left the panel. `fetchRate` guards this with a request id plus a `stillWanted` check; keep that if you touch it, because a silently wrong rate corrupts every ₪ figure in the trip.
-7. All money displayed with `Intl.NumberFormat`. ₪ equivalents shown small next to trip totals, budget, and in the trips menu.
+7. All money displayed with `Intl.NumberFormat`. ₪ equivalents shown small next to trip totals and in the trips menu.
 
 ## Design
 - Colors: background `#0a0a14`, cards `#11111f`, yellow accent `#F5C518`, blue `#1A73E8`, borders `#2a2a3e`.

@@ -32,12 +32,6 @@
   .total-amount { font-size: 38px; font-weight: 700; letter-spacing: -0.02em; }
   .trip-total { font-size: 13px; color: #888; margin-top: 6px; }
   #ilsEquiv { color: #666; margin-left: 6px; }
-  .budget-wrap { margin-top: 10px; display: none; }
-  .budget-wrap.on { display: block; }
-  .budget-bar { height: 6px; background: #1a1a2e; border-radius: 3px; overflow: hidden; width: 200px; }
-  .budget-fill { height: 100%; border-radius: 3px; background: #1A73E8; transition: width 0.3s; }
-  .budget-label { font-size: 11px; color: #888; margin-top: 5px; }
-  .budget-label b { color: #fff; }
   .trip-total b { color: #F5C518; font-weight: 700; }
   .btn-add {
     background: #F5C518; color: #0a0a14; border: none; border-radius: 8px;
@@ -105,6 +99,8 @@
     border-radius: 8px; padding: 11px 14px; font-size: 13px; font-weight: 700; white-space: nowrap;
   }
   .btn-rate:disabled { opacity: 0.55; }
+  /* the rate is fetched, never typed — show it as a value, not an editable field */
+  .text-input[readonly] { background: #06060d; color: #ccc; cursor: default; }
   .rate-note { display: none; font-size: 11px; margin-top: -4px; }
   .rate-note.on { display: block; }
   .rate-note.ok { color: #7f8c8d; }
@@ -220,9 +216,8 @@
     <div id="settingsSection" style="display:none; flex-direction:column; gap:10px;">
       <div class="trip-panel-title" id="settingsTitle">Trip settings</div>
       <input class="text-input" type="text" placeholder="Trip name" id="inpEditName" />
-      <input class="text-input" type="number" inputmode="decimal" placeholder="Total budget (optional)" id="inpBudget" />
       <div class="trip-row" id="rateRow">
-        <input class="text-input" type="number" inputmode="decimal" placeholder="Rate: 1 unit = ? ₪" id="inpRate" step="any" />
+        <input class="text-input" type="text" readonly placeholder="Tap Fetch for the ₪ rate" id="inpRate" />
         <button class="btn-rate" id="btnFetchRate" type="button">↻ Fetch</button>
       </div>
       <div class="rate-note" id="rateNote"></div>
@@ -237,11 +232,10 @@
     <input class="text-input" type="text" placeholder="Trip name (e.g. Japan)" id="inpTripName" />
     <select id="inpTripCurrency"></select>
     <div class="trip-row" id="newRateRow">
-      <input class="text-input" type="number" inputmode="decimal" placeholder="Rate: 1 unit = ? ₪" id="inpNewRate" step="any" />
+      <input class="text-input" type="text" readonly placeholder="Tap Fetch for the ₪ rate" id="inpNewRate" />
       <button class="btn-rate" id="btnFetchNewRate" type="button">↻ Fetch</button>
     </div>
     <div class="rate-note" id="newRateNote"></div>
-    <input class="text-input" type="number" inputmode="decimal" placeholder="Total budget (optional)" id="inpNewBudget" />
     <div class="panel-err" id="tripErr"></div>
     <div class="trip-row">
       <button class="btn-ghost" id="btnTripCancel">Cancel</button>
@@ -255,10 +249,6 @@
       <div class="total-label">spent today</div>
       <div class="total-amount" id="todayAmount"></div>
       <div class="trip-total">trip total: <b id="tripTotal"></b><span id="ilsEquiv"></span></div>
-      <div class="budget-wrap" id="budgetWrap">
-        <div class="budget-bar"><div class="budget-fill" id="budgetFill"></div></div>
-        <div class="budget-label" id="budgetLabel"></div>
-      </div>
     </div>
     <button class="btn-add" id="btnAdd">+ Add</button>
   </div>
@@ -473,21 +463,18 @@ function createTrip() {
   const r = parseFloat($("inpNewRate").value);
   if (!name) { panelErr("Give the trip a name."); return; }
   if (cur !== "ILS" && (!r || r <= 0)) {
-    panelErr(`Add the rate first: 1 ${cur} = ? ₪ (look it up before you land).`);
+    panelErr(`Tap ↻ Fetch to get the ${cur} rate — it needs a connection.`);
     return;
   }
-  const b = parseFloat($("inpNewBudget").value);
   const t = {
     id: uid(), name, currency: $("inpTripCurrency").value, entries: [],
     ilsRate: (r && r > 0) ? r : null,
-    budget: (b && b > 0) ? b : null,
   };
   state.trips.push(t);
   state.activeTripId = t.id;
   persist();
   $("inpTripName").value = "";
   $("inpNewRate").value = "";
-  $("inpNewBudget").value = "";
   clearRateNote("newRateNote");
   $("tripPanel").classList.remove("open");
   selectedDay = null;
@@ -505,10 +492,11 @@ function saveTripSettings() {
   const name = $("inpEditName").value.trim();
   if (!name) { settingsErr("Trip needs a name."); return; }
   const r = parseFloat($("inpRate").value);
-  if (t.currency !== "ILS" && (!r || r <= 0)) { settingsErr(`Rate is required: 1 ${t.currency} = ? ₪`); return; }
+  if (t.currency !== "ILS" && (!r || r <= 0)) {
+    settingsErr(`Tap ↻ Fetch to get the ${t.currency} rate — it needs a connection.`);
+    return;
+  }
   t.name = name;
-  const b = parseFloat($("inpBudget").value);
-  t.budget = (b && b > 0) ? b : null;
   t.ilsRate = t.currency === "ILS" ? null : r;
   persist();
   $("tripPanel").classList.remove("open");
@@ -623,7 +611,6 @@ function openSettings(id) {
   const t = state.trips.find(x => x.id === id);
   $("settingsTitle").textContent = `Settings — ${t.name} (${t.currency})`;
   $("inpEditName").value = t.name;
-  $("inpBudget").value = t.budget || "";
   $("inpRate").value = t.ilsRate || "";
   $("rateRow").style.display = t.currency === "ILS" ? "none" : "flex";
   clearRateNote("rateNote");
@@ -685,7 +672,7 @@ async function fetchRate(cur, inputId, noteId, btn, stillWanted) {
     rateNote(noteId, `1 ${cur} = ${shown} ₪${when ? " · rate from " + when : ""}`, true);
   } catch (err) {
     if (superseded()) return;
-    rateNote(noteId, "Couldn't fetch the rate — you're offline or the service is down. Type it in manually.", false);
+    rateNote(noteId, "Couldn't fetch the rate — you need a connection. Try again once you're online.", false);
   } finally {
     btn.disabled = false;
     btn.textContent = label;
@@ -697,20 +684,6 @@ function renderHeader() {
   $("tripTotal").textContent = fmt(all);
   $("ilsEquiv").textContent = ilsEq(all);
   $("currencySymbol").textContent = currencySymbol();
-  const bw = $("budgetWrap");
-  if (trip().budget > 0) {
-    bw.classList.add("on");
-    const pct = Math.min(100, (all / trip().budget) * 100);
-    const left = trip().budget - all;
-    const fill = $("budgetFill");
-    fill.style.width = pct + "%";
-    fill.style.background = pct >= 90 ? "#e74c3c" : pct >= 70 ? "#e67e22" : "#1A73E8";
-    $("budgetLabel").innerHTML = left >= 0
-      ? `<b>${fmt(left)}</b>${ilsEq(left)} left of ${fmt(trip().budget)}`
-      : `<b style="color:#e74c3c">${fmt(-left)} over</b> budget of ${fmt(trip().budget)}`;
-  } else {
-    bw.classList.remove("on");
-  }
 }
 function renderTabs() {
   const t = totals();

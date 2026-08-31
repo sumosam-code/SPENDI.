@@ -1,5 +1,5 @@
 // spendi service worker — caches the app so it opens with no internet
-const CACHE = "spendi-v3";
+const CACHE = "spendi-v4";
 const APP_SHELL = ["./", "./index.html"];
 // How long to wait for the network before falling back to the cached copy.
 const NET_TIMEOUT = 2500;
