@@ -100,6 +100,15 @@
     border: 1px solid #5c2a2a; border-radius: 7px; padding: 8px 10px;
   }
   .panel-err.on { display: block; }
+  .btn-rate {
+    flex: 0 0 auto; background: #1a1a2e; color: #F5C518; border: 1px solid #4a4520;
+    border-radius: 8px; padding: 11px 14px; font-size: 13px; font-weight: 700; white-space: nowrap;
+  }
+  .btn-rate:disabled { opacity: 0.55; }
+  .rate-note { display: none; font-size: 11px; margin-top: -4px; }
+  .rate-note.on { display: block; }
+  .rate-note.ok { color: #7f8c8d; }
+  .rate-note.bad { color: #e74c3c; }
   .btn-danger-sm {
     background: none; border: 1px solid #5c2a2a; border-radius: 7px;
     color: #c0392b; padding: 8px 12px; font-size: 12px; font-weight: 600;
@@ -214,7 +223,9 @@
       <input class="text-input" type="number" inputmode="decimal" placeholder="Total budget (optional)" id="inpBudget" />
       <div class="trip-row" id="rateRow">
         <input class="text-input" type="number" inputmode="decimal" placeholder="Rate: 1 unit = ? ₪" id="inpRate" step="any" />
+        <button class="btn-rate" id="btnFetchRate" type="button">↻ Fetch</button>
       </div>
+      <div class="rate-note" id="rateNote"></div>
       <div class="panel-err" id="settingsErr"></div>
       <div class="trip-row">
         <button class="btn-ghost" id="btnSettingsCancel">Cancel</button>
@@ -225,7 +236,11 @@
     <div class="trip-panel-title">New trip</div>
     <input class="text-input" type="text" placeholder="Trip name (e.g. Japan)" id="inpTripName" />
     <select id="inpTripCurrency"></select>
-    <input class="text-input" type="number" inputmode="decimal" placeholder="Rate: 1 unit = ? ₪" id="inpNewRate" step="any" />
+    <div class="trip-row" id="newRateRow">
+      <input class="text-input" type="number" inputmode="decimal" placeholder="Rate: 1 unit = ? ₪" id="inpNewRate" step="any" />
+      <button class="btn-rate" id="btnFetchNewRate" type="button">↻ Fetch</button>
+    </div>
+    <div class="rate-note" id="newRateNote"></div>
     <input class="text-input" type="number" inputmode="decimal" placeholder="Total budget (optional)" id="inpNewBudget" />
     <div class="panel-err" id="tripErr"></div>
     <div class="trip-row">
@@ -473,6 +488,7 @@ function createTrip() {
   $("inpTripName").value = "";
   $("inpNewRate").value = "";
   $("inpNewBudget").value = "";
+  clearRateNote("newRateNote");
   $("tripPanel").classList.remove("open");
   selectedDay = null;
   render();
@@ -610,6 +626,7 @@ function openSettings(id) {
   $("inpBudget").value = t.budget || "";
   $("inpRate").value = t.ilsRate || "";
   $("rateRow").style.display = t.currency === "ILS" ? "none" : "flex";
+  clearRateNote("rateNote");
   $("settingsSection").style.display = "flex";
   $("newSection").style.display = "none";
   toggleMenu(false);
@@ -618,8 +635,61 @@ function openSettings(id) {
 function openNewTrip() {
   $("settingsSection").style.display = "none";
   $("newSection").style.display = "flex";
+  clearRateNote("newRateNote");
+  syncNewRateRow();
   toggleMenu(false);
   $("tripPanel").classList.add("open");
+}
+
+// ---------- exchange rate lookup (only ever runs when the button is tapped) ----------
+const RATE_API = "https://open.er-api.com/v6/latest/";
+
+function clearRateNote(id) {
+  $(id).className = "rate-note";
+  $(id).textContent = "";
+}
+function rateNote(id, msg, ok) {
+  const el = $(id);
+  el.textContent = msg;
+  el.className = "rate-note on " + (ok ? "ok" : "bad");
+}
+function syncNewRateRow() {
+  const isIls = $("inpTripCurrency").value === "ILS";
+  $("newRateRow").style.display = isIls ? "none" : "flex";
+  if (isIls) clearRateNote("newRateNote");
+}
+let rateReqId = 0;
+async function fetchRate(cur, inputId, noteId, btn, stillWanted) {
+  if (!cur || cur === "ILS") return;
+  // A slow reply must never land in the field after the user has moved on to a
+  // different currency or panel — that would silently write a wrong rate.
+  const myReq = ++rateReqId;
+  const superseded = () =>
+    myReq !== rateReqId || !$("tripPanel").classList.contains("open") || (stillWanted && !stillWanted());
+  const label = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = "…";
+  rateNote(noteId, `Looking up 1 ${cur} in ₪…`, true);
+  try {
+    const res = await fetch(RATE_API + encodeURIComponent(cur), { cache: "no-store" });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const data = await res.json();
+    const rate = data && data.rates && data.rates.ILS;
+    if (data.result !== "success" || !rate || !(rate > 0)) throw new Error("no rate for " + cur);
+    if (superseded()) return;
+    const shown = Number(rate.toPrecision(6));
+    $(inputId).value = shown;
+    const when = data.time_last_update_utc
+      ? new Date(data.time_last_update_utc).toLocaleDateString(undefined, { day: "numeric", month: "short" })
+      : "";
+    rateNote(noteId, `1 ${cur} = ${shown} ₪${when ? " · rate from " + when : ""}`, true);
+  } catch (err) {
+    if (superseded()) return;
+    rateNote(noteId, "Couldn't fetch the rate — you're offline or the service is down. Type it in manually.", false);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = label;
+  }
 }
 function renderHeader() {
   const all = totals().All;
@@ -773,6 +843,17 @@ $("tripBtn").onclick = () => toggleMenu();
 $("btnTripCreate").onclick = createTrip;
 $("btnTripCancel").onclick = () => $("tripPanel").classList.remove("open");
 $("btnSettingsCancel").onclick = () => $("tripPanel").classList.remove("open");
+$("btnFetchNewRate").onclick = () => {
+  const cur = $("inpTripCurrency").value;
+  fetchRate(cur, "inpNewRate", "newRateNote", $("btnFetchNewRate"),
+    () => $("inpTripCurrency").value === cur && $("newSection").style.display !== "none");
+};
+$("btnFetchRate").onclick = () => {
+  const t = state.trips.find(x => x.id === settingsTripId);
+  if (!t) return;
+  fetchRate(t.currency, "inpRate", "rateNote", $("btnFetchRate"),
+    () => settingsTripId === t.id && $("settingsSection").style.display !== "none");
+};
 $("btnViewList").onclick = () => switchView("list");
 $("btnViewCal").onclick = () => switchView("cal");
 $("calPrev").onclick = () => shiftMonth(-1);
@@ -814,7 +895,8 @@ function symbolFor(code) {
 }
 $("inpTripCurrency").innerHTML = CURRENCIES.map(([code, name]) => `<option value="${code}">${symbolFor(code)}  ${code} — ${name}</option>`).join("");
 $("inpTripCurrency").onchange = () => {
-  $("inpNewRate").style.display = $("inpTripCurrency").value === "ILS" ? "none" : "block";
+  syncNewRateRow();
+  clearRateNote("newRateNote");
 };
 $("inpDate").value = todayStr();
 load();
