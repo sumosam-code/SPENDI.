@@ -31,7 +31,8 @@
   .total-label { font-size: 11px; color: #555; letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 4px; }
   .total-amount { font-size: 38px; font-weight: 700; letter-spacing: -0.02em; }
   .trip-total { font-size: 13px; color: #888; margin-top: 6px; }
-  #ilsEquiv { color: #666; margin-left: 6px; }
+  .total-ils { font-size: 13px; color: #666; margin-top: 5px; }
+  .total-ils:empty { display: none; }
   .trip-total b { color: #F5C518; font-weight: 700; }
   .btn-add {
     background: #F5C518; color: #0a0a14; border: none; border-radius: 8px;
@@ -168,6 +169,13 @@
   .entry-right { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
   .entry-amt { font-size: 15px; font-weight: 700; color: #F5C518; }
   .btn-del { background: none; border: none; color: #555; font-size: 13px; padding: 2px 6px; }
+  /* a just-added expense eases down into place at the top of the list */
+  @keyframes entry-in {
+    from { opacity: 0; transform: translateY(-12px); }
+    to   { opacity: 1; transform: none; }
+  }
+  .entry.is-new { animation: entry-in 300ms cubic-bezier(0.22, 1, 0.36, 1); }
+  @media (prefers-reduced-motion: reduce) { .entry.is-new { animation: none; } }
 
   .cal-wrap { padding: 16px; display: none; }
   .cal-wrap.open { display: block; }
@@ -246,9 +254,10 @@
 
   <div class="header">
     <div>
-      <div class="total-label">spent today</div>
-      <div class="total-amount" id="todayAmount"></div>
-      <div class="trip-total">trip total: <b id="tripTotal"></b><span id="ilsEquiv"></span></div>
+      <div class="total-label">trip total</div>
+      <div class="total-amount" id="tripTotal"></div>
+      <div class="total-ils" id="ilsEquiv"></div>
+      <div class="trip-total">spent today: <b id="todayAmount"></b></div>
     </div>
     <button class="btn-add" id="btnAdd">+ Add</button>
   </div>
@@ -424,18 +433,57 @@ function addMethod(name) {
   return true;
 }
 
+// ---------- the cha-ching (synthesised, so there is no sound file to fetch) ----------
+let audioCtx = null;
+function bell(at, freq, dur, vol) {
+  const out = audioCtx.createGain();
+  out.connect(audioCtx.destination);
+  out.gain.setValueAtTime(0.0001, at);
+  out.gain.exponentialRampToValueAtTime(vol, at + 0.006);
+  out.gain.exponentialRampToValueAtTime(0.0001, at + dur);
+  // inharmonic partials over the fundamental are what make it read as struck metal
+  [[1, 1], [2.76, 0.3], [5.4, 0.12]].forEach(([mult, amp]) => {
+    const o = audioCtx.createOscillator();
+    o.type = "sine";
+    o.frequency.value = freq * mult;
+    const g = audioCtx.createGain();
+    g.gain.value = amp;
+    o.connect(g);
+    g.connect(out);
+    o.start(at);
+    o.stop(at + dur + 0.02);
+  });
+}
+function chaChing() {
+  try {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    if (!audioCtx) audioCtx = new AC();
+    if (audioCtx.state === "suspended") audioCtx.resume();
+    const t = audioCtx.currentTime;
+    bell(t, 1046.5, 0.09, 0.09);        // "cha" — clipped short
+    bell(t + 0.085, 1568, 0.45, 0.075); // "ching" — a fifth up, left to ring
+  } catch (e) {
+    // the sound is a nicety; it must never stop an expense being saved
+  }
+}
+
 // ---------- mutations (each persists immediately) ----------
+let justAddedId = null;
 function addExpense() {
   const amt = parseFloat($("inpAmount").value);
   if (!amt || amt <= 0) return;
-  trip().entries.unshift({
+  // fired first, while we are still inside the tap — iOS only unlocks audio in a gesture
+  chaChing();
+  const entry = {
     id: uid(),
     amount: amt,
     method: formMethod,
     category: $("inpCategory").value,
     note: $("inpNote").value.trim(),
     date: $("inpDate").value || todayStr(),
-  });
+  };
+  trip().entries.unshift(entry);
   state.lastMethod = formMethod;
   state.lastCategory = $("inpCategory").value;
   persist();
@@ -444,7 +492,13 @@ function addExpense() {
   $("inpDate").value = todayStr();
   $("formCard").classList.remove("open");
   $("btnAdd").textContent = "+ Add";
+  justAddedId = entry.id;
   render();
+  // drop the marker once it has played, so no later re-render replays the animation
+  setTimeout(() => {
+    justAddedId = null;
+    document.querySelectorAll("#entryList .entry.is-new").forEach(el => el.classList.remove("is-new"));
+  }, 400);
 }
 function delEntry(id) {
   trip().entries = trip().entries.filter(e => e.id !== id);
@@ -680,9 +734,9 @@ async function fetchRate(cur, inputId, noteId, btn, stillWanted) {
 }
 function renderHeader() {
   const all = totals().All;
-  $("todayAmount").textContent = fmt(todayTotal());
   $("tripTotal").textContent = fmt(all);
-  $("ilsEquiv").textContent = ilsEq(all);
+  $("ilsEquiv").textContent = ilsEq(all).trim();
+  $("todayAmount").textContent = fmt(todayTotal());
   $("currencySymbol").textContent = currencySymbol();
 }
 function renderTabs() {
@@ -697,7 +751,7 @@ function renderTabs() {
 function setMethod(m) { activeMethod = m; render(); }
 
 function entryRow(e, showDate) {
-  return `<div class="entry">
+  return `<div class="entry${e.id === justAddedId ? " is-new" : ""}">
     <div class="dot" style="background:${methodColor(e.method)}"></div>
     <div class="entry-info">
       <div class="entry-cat">${e.category}</div>
